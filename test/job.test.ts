@@ -194,6 +194,24 @@ describe("ScanJob fault tolerance", () => {
     await job.completed();
   });
 
+  it("a throwing listener does not break dispatch or other listeners", async () => {
+    const { client } = makeClient();
+    const job = await client.scan({ device_id: "d1", backend: "escl", output_format: "pdf" });
+
+    const seen: string[] = [];
+    job.on("progress", () => {
+      throw new Error("user callback blew up");
+    });
+    job.on("progress", (e) => seen.push(e.status)); // must still fire
+
+    FakeWebSocket.last!.push({ status: "scanning", page_count: 0, max_pages: 1 });
+    FakeWebSocket.last!.push({ status: "done", page_count: 1, max_pages: 1 });
+
+    const blob = await job.completed();
+    expect(seen).toEqual(["scanning", "done"]);
+    expect(blob.type).toBe("application/pdf");
+  });
+
   it("warns and drops a malformed frame without failing", async () => {
     const { client } = makeClient();
     const job = await client.scan({ device_id: "d1", backend: "escl", output_format: "pdf" });

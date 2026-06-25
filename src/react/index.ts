@@ -44,6 +44,9 @@ export interface UseScannerResult {
   /** Result blob once the scan completes. */
   result: Blob | null;
   error: Error | null;
+  /** Non-fatal notices for the current job (reconnect attempts, dropped
+   * frames). Latest last. */
+  warnings: string[];
   /** Capture the next flatbed page. */
   continueScan: () => Promise<void>;
   /** Stop early, assemble what's captured. */
@@ -62,6 +65,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
   const [maxPages, setMaxPages] = useState(1);
   const [result, setResult] = useState<Blob | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const jobRef = useRef<ScanJob | null>(null);
 
   const teardown = useCallback(() => {
@@ -79,6 +83,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
       setMaxPages(request.max_pages ?? 1);
       setResult(null);
       setError(null);
+      setWarnings([]);
 
       try {
         const job = await client.scan(request);
@@ -90,6 +95,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
         });
         job.on("done", (blob) => setResult(blob));
         job.on("error", (err) => setError(err));
+        job.on("warning", (msg) => setWarnings((prev) => [...prev, msg]));
       } catch (err) {
         setError(err instanceof Error ? err : new Error(String(err)));
         setStatus("error");
@@ -113,6 +119,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
     setMaxPages(1);
     setResult(null);
     setError(null);
+    setWarnings([]);
   }, [teardown]);
 
   return {
@@ -123,6 +130,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
     awaitingPage: status === "awaiting_page",
     result,
     error,
+    warnings,
     continueScan,
     finishScan,
     reset,

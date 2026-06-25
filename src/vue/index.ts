@@ -11,6 +11,7 @@ export interface UseScannerReturn {
   awaitingPage: Ref<boolean>;
   result: Ref<Blob | null>;
   error: Ref<Error | null>;
+  warnings: Ref<string[]>;
   loadDevices: () => Promise<void>;
   scan: (request: ScanRequest) => Promise<void>;
   continueScan: () => Promise<void>;
@@ -30,6 +31,7 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
   const awaitingPage = ref(false);
   const result = ref<Blob | null>(null);
   const error = ref<Error | null>(null);
+  const warnings = ref<string[]>([]);
 
   let job: ScanJob | null = null;
 
@@ -50,6 +52,7 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     awaitingPage.value = false;
     result.value = null;
     error.value = null;
+    warnings.value = [];
 
     try {
       job = await client.scan(request);
@@ -66,6 +69,9 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
       job.on("error", (err) => {
         error.value = err;
         awaitingPage.value = false;
+      });
+      job.on("warning", (msg) => {
+        warnings.value = [...warnings.value, msg];
       });
     } catch (err) {
       error.value = err instanceof Error ? err : new Error(String(err));
@@ -89,6 +95,7 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     awaitingPage.value = false;
     result.value = null;
     error.value = null;
+    warnings.value = [];
   };
 
   onScopeDispose(teardown);
@@ -101,6 +108,7 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     awaitingPage,
     result,
     error,
+    warnings,
     loadDevices,
     scan,
     continueScan,

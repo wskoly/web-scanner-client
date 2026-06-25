@@ -101,7 +101,7 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | `retryDelayMs` | `500` | Base retry backoff; doubles per attempt, capped 5s. |
 | `maxReconnects` | `5` | WebSocket auto-reconnect attempts before failing. |
 | `reconnectDelayMs` | `500` | Base reconnect backoff; doubles per attempt, capped 5s. |
-| `stallTimeoutMs` | `300000` | If no WS frame arrives for this long (a dead/half-open socket), force a reconnect. Paused during `awaiting_page`. `0` disables. |
+| `stallTimeoutMs` | `300000` | If no WS frame arrives for this long (a dead/half-open socket), force a reconnect. Paused during `awaiting_page`. Raise it if you scan very large pages at high DPI that can take minutes with no intermediate frame; `0` disables. |
 
 **Fault tolerance.** The progress WebSocket auto-reconnects with backoff on drop or stall; the agent re-sends current job status on every connect, so a scan resumes (even if it finished while you were disconnected). HTTP calls time out and retry transient failures (including printer "busy" 503s). Subscribe to `job.on("warning", …)` to observe reconnect attempts and dropped malformed frames.
 

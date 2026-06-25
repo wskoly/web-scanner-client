@@ -101,7 +101,10 @@ export class ScannerClient {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request_),
       },
-      this.httpOptions,
+      // retries:0 - POST /scan is NOT idempotent. A retry after the device
+      // already accepted the job (e.g. response lost to a timeout) would start
+      // a second physical scan. Keep the timeout; drop the retry.
+      { ...this.httpOptions, retries: 0 },
     );
     if (!res.ok) {
       throw new ScannerError(res.status, await safeDetail(res));

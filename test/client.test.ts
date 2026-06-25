@@ -78,6 +78,27 @@ describe("ScannerClient", () => {
     expect(fetchImpl.calls.filter((c) => c.url.endsWith("/devices"))).toHaveLength(2);
   });
 
+  it("does NOT retry the scan POST (would double-scan)", async () => {
+    const fetchImpl = makeFetch({
+      "POST /scan": [
+        { ok: false, status: 503, json: { detail: "busy" } },
+        { json: { job_id: "job1" } },
+      ],
+    });
+    const client = new ScannerClient({
+      baseUrl: "http://agent",
+      fetch: fetchImpl,
+      WebSocket: FakeWebSocketCtor,
+      retries: 5,
+      retryDelayMs: 0,
+    });
+
+    await expect(client.scan({ device_id: "d1", backend: "escl" })).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(fetchImpl.calls.filter((c) => c.url.endsWith("/scan"))).toHaveLength(1);
+  });
+
   it("aborts a request after timeoutMs", async () => {
     vi.useFakeTimers();
     // Honors the abort signal: rejects when the timeout fires.

@@ -250,7 +250,7 @@ export class ScanJob {
         this.ws.close();
         this.ws = null;
       }
-      for (const cb of this.listeners.done) cb(blob, { format: this.outputFormat });
+      for (const cb of this.listeners.done) safeInvoke(cb, blob, { format: this.outputFormat });
       this.resolveCompletion(blob);
     } catch (err) {
       this.fail(err instanceof Error ? err : new Error(String(err)));
@@ -296,11 +296,11 @@ export class ScanJob {
   }
 
   private emit(event: "progress" | "awaiting_page", payload: ScanJobEvent): void {
-    for (const cb of this.listeners[event]) cb(payload);
+    for (const cb of this.listeners[event]) safeInvoke(cb, payload);
   }
 
   private emitWarning(msg: string): void {
-    for (const cb of this.listeners.warning) cb(msg);
+    for (const cb of this.listeners.warning) safeInvoke(cb, msg);
   }
 
   private fail(err: Error): void {
@@ -312,8 +312,17 @@ export class ScanJob {
       this.ws.close();
       this.ws = null;
     }
-    for (const cb of this.listeners.error) cb(err);
+    for (const cb of this.listeners.error) safeInvoke(cb, err);
     this.rejectCompletion(err);
+  }
+}
+
+// A throwing user callback must not break WS dispatch or skip other listeners.
+function safeInvoke<A extends unknown[]>(cb: (...args: A) => void, ...args: A): void {
+  try {
+    cb(...args);
+  } catch {
+    /* swallow listener errors - they're the consumer's problem, not ours */
   }
 }
 
