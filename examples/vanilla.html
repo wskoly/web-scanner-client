@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>web-scanner-client - vanilla example</title>
+</head>
+<body>
+<h1>Scan (vanilla JS)</h1>
+<button id="load">Load devices</button>
+<select id="device"></select>
+<button id="scan">Scan (bw_document preset)</button>
+
+<div id="awaiting" style="display:none">
+  <p id="awaitingText"></p>
+  <button id="continue">Continue</button>
+  <button id="finish">Finish now</button>
+</div>
+
+<pre id="log"></pre>
+<div id="result"></div>
+
+<script type="module">
+// In a real app: import { ScannerClient } from "web-scanner-client";
+// Here we load the built ESM bundle directly.
+import { ScannerClient } from "../dist/index.js";
+
+const client = new ScannerClient(); // defaults to http://127.0.0.1:51823
+const log = (m) => (document.getElementById("log").textContent += m + "\n");
+const deviceEl = document.getElementById("device");
+const awaitingEl = document.getElementById("awaiting");
+let currentJob = null;
+
+document.getElementById("load").onclick = async () => {
+  const devices = await client.listDevices();
+  deviceEl.innerHTML = "";
+  for (const d of devices) {
+    const opt = document.createElement("option");
+    opt.value = JSON.stringify({ id: d.id, backend: d.backend });
+    opt.textContent = `[${d.backend}] ${d.name}`;
+    deviceEl.appendChild(opt);
+  }
+  log(`Loaded ${devices.length} device(s).`);
+};
+
+document.getElementById("scan").onclick = async () => {
+  const { id, backend } = JSON.parse(deviceEl.value);
+  const job = await client.scan({
+    device_id: id,
+    backend,
+    dpi: 200,
+    source: "flatbed",
+    output_format: "pdf",
+    max_pages: 1,
+    preset: "bw_document",
+  });
+  currentJob = job;
+
+  job.on("progress", (e) => log(`status=${e.status} pages=${e.pageCount}/${e.maxPages}`));
+  job.on("awaiting_page", (e) => {
+    document.getElementById("awaitingText").textContent =
+      `Captured page ${e.pageCount} of ${e.maxPages}. Swap the document, then Continue.`;
+    awaitingEl.style.display = "block";
+  });
+  job.on("done", (blob) => {
+    awaitingEl.style.display = "none";
+    const url = URL.createObjectURL(blob);
+    document.getElementById("result").innerHTML =
+      `<a href="${url}" download="scan.pdf">Download scan.pdf</a>`;
+    log("Done.");
+  });
+  job.on("error", (err) => log("ERROR: " + err.message));
+};
+
+document.getElementById("continue").onclick = () => currentJob?.continue();
+document.getElementById("finish").onclick = () => currentJob?.finish();
+</script>
+</body>
+</html>
