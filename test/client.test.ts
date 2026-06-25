@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { ScannerClient, ScannerError } from "../src/index.js";
+import { describe, expect, it, vi } from "vitest";
+import { ScannerClient, ScannerError, type HttpLike } from "../src/index.js";
 import { FakeWebSocketCtor, makeFetch } from "./helpers.js";
 
 describe("ScannerClient", () => {
@@ -56,5 +56,49 @@ describe("ScannerClient", () => {
     const err = new ScannerError(409, "Job not awaiting a page");
     expect(err.message).toContain("409");
     expect(err.message).toContain("awaiting");
+  });
+
+  it("retries a transient 503 then succeeds", async () => {
+    const fetchImpl = makeFetch({
+      "GET /devices": [
+        { ok: false, status: 503, json: { detail: "busy" } },
+        { json: [{ id: "d1", name: "HP", backend: "escl" }] },
+      ],
+    });
+    const client = new ScannerClient({
+      baseUrl: "http://agent",
+      fetch: fetchImpl,
+      WebSocket: FakeWebSocketCtor,
+      retries: 2,
+      retryDelayMs: 0,
+      timeoutMs: 0,
+    });
+
+    expect(await client.listDevices()).toHaveLength(1);
+    expect(fetchImpl.calls.filter((c) => c.url.endsWith("/devices"))).toHaveLength(2);
+  });
+
+  it("aborts a request after timeoutMs", async () => {
+    vi.useFakeTimers();
+    // Honors the abort signal: rejects when the timeout fires.
+    const fetchImpl = ((_url: string, init?: { signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      })) as HttpLike;
+
+    const client = new ScannerClient({
+      baseUrl: "http://agent",
+      fetch: fetchImpl,
+      WebSocket: FakeWebSocketCtor,
+      timeoutMs: 1000,
+      retries: 0,
+    });
+
+    // Attach the rejection handler BEFORE advancing timers, else the reject
+    // fires mid-advance with no handler and vitest flags a false unhandled.
+    const assertion = expect(client.listDevices()).rejects.toThrow("aborted");
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
+    vi.useRealTimers();
   });
 });

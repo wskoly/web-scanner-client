@@ -1,5 +1,10 @@
 import { ScannerError } from "./errors.js";
-import { ScanJob, type HttpLike, type WebSocketCtor } from "./job.js";
+import { request, type HttpLike, type RequestOptions } from "./http.js";
+import {
+  ScanJob,
+  type ScanJobResilienceOptions,
+  type WebSocketCtor,
+} from "./job.js";
 import type { Device, FilterDef, Preset, ScanRequest } from "./types.js";
 
 export interface ScannerClientOptions {
@@ -9,18 +14,35 @@ export interface ScannerClientOptions {
   fetch?: HttpLike;
   /** Override WebSocket ctor (defaults to global WebSocket). */
   WebSocket?: WebSocketCtor;
+  /** Per-request timeout in ms (0 disables). Default 30000. */
+  timeoutMs?: number;
+  /** Transient-failure retries for idempotent calls (GET, scan result, scan
+   * start). Default 2. continue()/finish() are never retried. */
+  retries?: number;
+  /** Base retry backoff in ms (doubles per attempt, capped 5s). Default 500. */
+  retryDelayMs?: number;
+  /** Max WebSocket reconnect attempts. Default 5. */
+  maxReconnects?: number;
+  /** Base reconnect backoff in ms. Default 500. */
+  reconnectDelayMs?: number;
+  /** Stall watchdog in ms; forces reconnect if no frame arrives (paused
+   * during awaiting_page). 0 disables. Default 300000 (5 min). */
+  stallTimeoutMs?: number;
 }
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:51823";
 
 /**
  * Client for the web-scanner-sdk local agent. Framework-agnostic: the React
- * and Vue adapters are thin wrappers over this.
+ * and Vue adapters are thin wrappers over this. All network calls share a
+ * timeout + transient-retry layer; scan jobs add WS auto-reconnect.
  */
 export class ScannerClient {
   readonly baseUrl: string;
   private readonly fetchImpl: HttpLike;
   private readonly WebSocketImpl: WebSocketCtor;
+  private readonly httpOptions: RequestOptions;
+  private readonly resilience: ScanJobResilienceOptions;
 
   constructor(options: ScannerClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
@@ -37,6 +59,17 @@ export class ScannerClient {
       throw new Error("No WebSocket implementation available; pass options.WebSocket");
     }
     this.WebSocketImpl = WebSocketImpl;
+
+    this.httpOptions = {
+      timeoutMs: options.timeoutMs ?? 30000,
+      retries: options.retries ?? 2,
+      retryDelayMs: options.retryDelayMs ?? 500,
+    };
+    this.resilience = {
+      maxReconnects: options.maxReconnects ?? 5,
+      reconnectDelayMs: options.reconnectDelayMs ?? 500,
+      stallTimeoutMs: options.stallTimeoutMs ?? 300000,
+    };
   }
 
   /** GET /devices - enumerate scanners across all backends. */
@@ -56,14 +89,20 @@ export class ScannerClient {
 
   /**
    * POST /scan, then open the progress WebSocket. Returns a live ScanJob you
-   * subscribe to (progress/awaiting_page/done/error) or await via completed().
+   * subscribe to (progress/awaiting_page/done/error/warning) or await via
+   * completed().
    */
-  async scan(request: ScanRequest): Promise<ScanJob> {
-    const res = await this.fetchImpl(`${this.baseUrl}/scan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    } as never);
+  async scan(request_: ScanRequest): Promise<ScanJob> {
+    const res = await request(
+      this.fetchImpl,
+      `${this.baseUrl}/scan`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request_),
+      },
+      this.httpOptions,
+    );
     if (!res.ok) {
       throw new ScannerError(res.status, await safeDetail(res));
     }
@@ -72,14 +111,16 @@ export class ScannerClient {
     return new ScanJob({
       id: job_id,
       baseUrl: this.baseUrl,
-      outputFormat: request.output_format ?? "pdf",
+      outputFormat: request_.output_format ?? "pdf",
       fetchImpl: this.fetchImpl,
       WebSocketImpl: this.WebSocketImpl,
+      httpOptions: this.httpOptions,
+      resilience: this.resilience,
     });
   }
 
   private async getJson<T>(path: string): Promise<T> {
-    const res = await this.fetchImpl(`${this.baseUrl}${path}`);
+    const res = await request(this.fetchImpl, `${this.baseUrl}${path}`, {}, this.httpOptions);
     if (!res.ok) {
       throw new ScannerError(res.status, await safeDetail(res));
     }

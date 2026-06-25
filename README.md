@@ -96,6 +96,14 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | `baseUrl` | `http://127.0.0.1:51823` | Agent address. |
 | `fetch` | `globalThis.fetch` | Inject for Node/testing. |
 | `WebSocket` | `globalThis.WebSocket` | Inject for Node/testing. |
+| `timeoutMs` | `30000` | Per-request timeout (AbortController). `0` disables. |
+| `retries` | `2` | Transient-failure retries (429/502/503/504 + network errors) for idempotent calls — GET, scan start, result fetch. **`continue()`/`finish()` are never retried** (not idempotent). |
+| `retryDelayMs` | `500` | Base retry backoff; doubles per attempt, capped 5s. |
+| `maxReconnects` | `5` | WebSocket auto-reconnect attempts before failing. |
+| `reconnectDelayMs` | `500` | Base reconnect backoff; doubles per attempt, capped 5s. |
+| `stallTimeoutMs` | `300000` | If no WS frame arrives for this long (a dead/half-open socket), force a reconnect. Paused during `awaiting_page`. `0` disables. |
+
+**Fault tolerance.** The progress WebSocket auto-reconnects with backoff on drop or stall; the agent re-sends current job status on every connect, so a scan resumes (even if it finished while you were disconnected). HTTP calls time out and retry transient failures (including printer "busy" 503s). Subscribe to `job.on("warning", …)` to observe reconnect attempts and dropped malformed frames.
 
 | method | returns |
 | --- | --- |
@@ -113,7 +121,7 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | member | description |
 | --- | --- |
 | `id`, `status`, `pageCount`, `maxPages` | live state |
-| `on("progress" \| "awaiting_page" \| "done" \| "error", cb)` | subscribe; returns an unsubscribe fn |
+| `on("progress" \| "awaiting_page" \| "done" \| "error" \| "warning", cb)` | subscribe; returns an unsubscribe fn |
 | `continue()` / `finish()` | flatbed page-swap controls (valid only while `awaiting_page`) |
 | `completed()` | `Promise<Blob>` — resolves on done, rejects on error |
 | `resultUrl()` | URL for `<a download>` / `<img src>` |
