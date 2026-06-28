@@ -1,6 +1,6 @@
 # web-scanner-client
 
-Framework-agnostic TypeScript client for the [web-scanner-sdk](../web-scanner-sdk) local agent. Scan documents from any browser over a trusted HTTPS connection — no plugins, no driver code, no `fetch`/`WebSocket` boilerplate.
+Framework-agnostic TypeScript client for the [web-scanner-sdk](../web-scanner-sdk) local agent. Scan documents from any browser over a trusted HTTPS connection : no plugins, no driver code, no `fetch`/`WebSocket` boilerplate.
 
 Ships a **core** client plus optional **React** hooks and a **Vue** composable. React/Vue are optional peer deps; unused ones are tree-shaken away.
 
@@ -48,7 +48,7 @@ const url = URL.createObjectURL(blob);
 
 ## Multi-page (page-swap flow)
 
-For `source: "flatbed"` with `max_pages > 1`, the agent pauses after each page and emits `awaiting_page`. Prompt the user to place the next page, then call `continue()` — or `finish()` to stop early and keep what's been scanned:
+For `source: "flatbed"` with `max_pages > 1`, the agent pauses after each page and emits `awaiting_page`. Prompt the user to place the next page, then call `continue()` : or `finish()` to stop early and keep what's been scanned:
 
 ```ts
 const job = await client.scan({
@@ -129,17 +129,17 @@ The progress WebSocket auto-reconnects with backoff on drop or stall. The agent 
 
 | field | default | values |
 | --- | --- | --- |
-| `device_id` | — | from `listDevices()` |
-| `backend` | — | from `listDevices()` |
+| `device_id` | : | from `listDevices()` |
+| `backend` | : | from `listDevices()` |
 | `dpi` | `300` | `75` / `150` / `200` / `300` / `600` |
 | `color_mode` | `color` | `color` / `grayscale` / `black_and_white` |
 | `source` | `flatbed` | `flatbed` / `adf` / `adf_duplex` |
-| `output_format` | `pdf` | `pdf` / `png` / `jpeg` — **PNG and JPEG only support `max_pages: 1`; use `pdf` for multi-page scans** |
-| `max_pages` | `1` | positive integer (≥ 1) — **must be `1` when `output_format` is `png` or `jpeg`** |
-| `preset` | — | string from `listPresets()` — mutually exclusive with `filters` |
-| `filters` | — | `[{ name, params? }]` — mutually exclusive with `preset` |
+| `output_format` | `pdf` | `pdf` / `png` / `jpeg` : **PNG and JPEG only support `max_pages: 1`; use `pdf` for multi-page scans** |
+| `max_pages` | `1` | positive integer (≥ 1) : **must be `1` when `output_format` is `png` or `jpeg`** |
+| `preset` | : | string from `listPresets()` : mutually exclusive with `filters` |
+| `filters` | : | `[{ name, params? }]` : mutually exclusive with `preset` |
 
-> **Note**: Passing `output_format: "png"` or `"jpeg"` with `max_pages > 1` throws a `ScannerError(422)` immediately in the client — no HTTP request is made. The SDK server enforces the same rule and returns HTTP 422 if the constraint is bypassed. Use `output_format: "pdf"` for all multi-page scans.
+> **Note**: Passing `output_format: "png"` or `"jpeg"` with `max_pages > 1` throws a `ScannerError(422)` immediately in the client : no HTTP request is made. The SDK server enforces the same rule and returns HTTP 422 if the constraint is bypassed. Use `output_format: "pdf"` for all multi-page scans.
 
 ### `ScanJob`
 
@@ -149,7 +149,7 @@ The progress WebSocket auto-reconnects with backoff on drop or stall. The agent 
 | `on("progress" \| "awaiting_page" \| "done" \| "error" \| "warning", cb)` | subscribe; returns unsubscribe fn |
 | `continue()` | scan next page (only valid while `awaiting_page`) |
 | `finish()` | stop early and assemble pages so far (only valid while `awaiting_page`) |
-| `completed()` | `Promise<Blob>` — resolves on `done`, rejects on `error` |
+| `completed()` | `Promise<Blob>` : resolves on `done`, rejects on `error` |
 | `resultUrl()` | URL string for `<a download>` or `<img src>` |
 | `close()` | tear down the WebSocket |
 
@@ -163,7 +163,7 @@ If you run the agent directly (no installer, no mkcert), it falls back to plain 
 const client = new ScannerClient({ baseUrl: "http://127.0.0.1:51823" });
 ```
 
-Serve your frontend over `http://localhost` in this mode — browsers block `http://` calls from `https://` pages (mixed content). Install the desktop package for production use to get trusted HTTPS automatically.
+Serve your frontend over `http://localhost` in this mode : browsers block `http://` calls from `https://` pages (mixed content). Install the desktop package for production use to get trusted HTTPS automatically.
 
 ## License
 
