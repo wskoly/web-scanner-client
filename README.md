@@ -55,7 +55,7 @@ const job = await client.scan({
   device_id, backend,
   source: "flatbed",
   max_pages: 3,
-  output_format: "pdf",
+  output_format: "pdf",   // required for max_pages > 1; png/jpeg only support single-page output
 });
 
 job.on("awaiting_page", (e) => {
@@ -134,10 +134,12 @@ The progress WebSocket auto-reconnects with backoff on drop or stall. The agent 
 | `dpi` | `300` | `75` / `150` / `200` / `300` / `600` |
 | `color_mode` | `color` | `color` / `grayscale` / `black_and_white` |
 | `source` | `flatbed` | `flatbed` / `adf` / `adf_duplex` |
-| `output_format` | `pdf` | `pdf` / `png` / `jpeg` |
-| `max_pages` | `1` | any positive integer |
+| `output_format` | `pdf` | `pdf` / `png` / `jpeg` — **PNG and JPEG only support `max_pages: 1`; use `pdf` for multi-page scans** |
+| `max_pages` | `1` | positive integer (≥ 1) — **must be `1` when `output_format` is `png` or `jpeg`** |
 | `preset` | — | string from `listPresets()` — mutually exclusive with `filters` |
 | `filters` | — | `[{ name, params? }]` — mutually exclusive with `preset` |
+
+> **Note**: Passing `output_format: "png"` or `"jpeg"` with `max_pages > 1` throws a `ScannerError(422)` immediately in the client — no HTTP request is made. The SDK server enforces the same rule and returns HTTP 422 if the constraint is bypassed. Use `output_format: "pdf"` for all multi-page scans.
 
 ### `ScanJob`
 

@@ -99,6 +99,70 @@ describe("ScannerClient", () => {
     expect(fetchImpl.calls.filter((c) => c.url.endsWith("/scan"))).toHaveLength(1);
   });
 
+  describe("scan() pre-validation", () => {
+    it("throws ScannerError(422) before HTTP call when png + max_pages > 1", async () => {
+      const fetchImpl = makeFetch({});
+      const client = new ScannerClient({
+        baseUrl: "http://agent",
+        fetch: fetchImpl,
+        WebSocket: FakeWebSocketCtor,
+      });
+
+      await expect(
+        client.scan({ device_id: "d1", backend: "escl", output_format: "png", max_pages: 2 }),
+      ).rejects.toMatchObject({ name: "ScannerError", status: 422 });
+
+      expect(fetchImpl.calls).toHaveLength(0);
+    });
+
+    it("throws ScannerError(422) before HTTP call when jpeg + max_pages > 1", async () => {
+      const fetchImpl = makeFetch({});
+      const client = new ScannerClient({
+        baseUrl: "http://agent",
+        fetch: fetchImpl,
+        WebSocket: FakeWebSocketCtor,
+      });
+
+      await expect(
+        client.scan({ device_id: "d1", backend: "escl", output_format: "jpeg", max_pages: 3 }),
+      ).rejects.toMatchObject({ name: "ScannerError", status: 422 });
+
+      expect(fetchImpl.calls).toHaveLength(0);
+    });
+
+    it("allows png with max_pages=1 and makes the HTTP call", async () => {
+      const fetchImpl = makeFetch({
+        "POST /scan": { json: { job_id: "job1" } },
+      });
+      const client = new ScannerClient({
+        baseUrl: "http://agent",
+        fetch: fetchImpl,
+        WebSocket: FakeWebSocketCtor,
+      });
+
+      await expect(
+        client.scan({ device_id: "d1", backend: "escl", output_format: "png", max_pages: 1 }),
+      ).resolves.toBeDefined();
+
+      expect(fetchImpl.calls.filter((c) => c.url.endsWith("/scan"))).toHaveLength(1);
+    });
+
+    it("allows pdf with max_pages > 1 (no pre-validation error)", async () => {
+      const fetchImpl = makeFetch({
+        "POST /scan": { json: { job_id: "job1" } },
+      });
+      const client = new ScannerClient({
+        baseUrl: "http://agent",
+        fetch: fetchImpl,
+        WebSocket: FakeWebSocketCtor,
+      });
+
+      await expect(
+        client.scan({ device_id: "d1", backend: "escl", output_format: "pdf", max_pages: 5 }),
+      ).resolves.toBeDefined();
+    });
+  });
+
   it("aborts a request after timeoutMs", async () => {
     vi.useFakeTimers();
     // Honors the abort signal: rejects when the timeout fires.

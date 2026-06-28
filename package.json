@@ -1,6 +1,6 @@
 {
   "name": "web-scanner-client",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "Framework-agnostic TypeScript client for the web-scanner-sdk local agent (WIA/TWAIN/SANE/eSCL document scanning over HTTP+WebSocket). Core + React hooks + Vue composable.",
   "type": "module",
   "sideEffects": false,

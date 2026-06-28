@@ -93,6 +93,14 @@ export class ScannerClient {
    * completed().
    */
   async scan(request_: ScanRequest): Promise<ScanJob> {
+    const fmt = request_.output_format ?? "pdf";
+    const pages = request_.max_pages ?? 1;
+    if ((fmt === "png" || fmt === "jpeg") && pages > 1) {
+      throw new ScannerError(
+        422,
+        "PNG and JPEG output only support a single page; set output_format to 'pdf' when max_pages > 1",
+      );
+    }
     const res = await request(
       this.fetchImpl,
       `${this.baseUrl}/scan`,
