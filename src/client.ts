@@ -30,7 +30,7 @@ export interface ScannerClientOptions {
   stallTimeoutMs?: number;
 }
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:51823";
+const DEFAULT_BASE_URL = "https://127.0.0.1:51823";
 
 /**
  * Client for the web-scanner-sdk local agent. Framework-agnostic: the React

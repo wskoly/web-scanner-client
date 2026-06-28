@@ -29,6 +29,12 @@ function makeClient(overrides: Partial<ScannerClientOptions> = {}, extraRoutes =
 }
 
 describe("ScanJob lifecycle", () => {
+  it("upgrades https baseUrl to wss:// for the progress socket", async () => {
+    const { client } = makeClient({ baseUrl: "https://agent" });
+    await client.scan({ device_id: "d1", backend: "escl" });
+    expect(FakeWebSocket.last!.url).toMatch(/^wss:\/\//);
+  });
+
   it("emits progress and resolves completed() with the result blob on done", async () => {
     const { client } = makeClient();
     const job = await client.scan({ device_id: "d1", backend: "escl", output_format: "pdf" });
