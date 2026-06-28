@@ -1,6 +1,6 @@
 # web-scanner-client
 
-Framework-agnostic TypeScript client for the [web-scanner-sdk](../web-scanner-sdk) local agent. Talk to any document scanner (Windows WIA/TWAIN, Linux SANE, network eSCL/AirScan) from the browser — devices, presets, filters, live progress, multi-page flatbed page-swap prompts, and the result file as a `Blob` — without hand-writing `fetch`/`WebSocket` glue.
+Framework-agnostic TypeScript client for the [web-scanner-sdk](../web-scanner-sdk) local agent. Talk to any document scanner (Windows WIA/TWAIN, Linux SANE, network eSCL/AirScan) from the browser : devices, presets, filters, live progress, multi-page flatbed page-swap prompts, and the result file as a `Blob` : without hand-writing `fetch`/`WebSocket` glue.
 
 Ships a **core** client plus optional **React** hooks and a **Vue** composable. React/Vue are optional peer deps; if you don't use them, they're tree-shaken away.
 
@@ -10,7 +10,7 @@ Ships a **core** client plus optional **React** hooks and a **Vue** composable. 
 npm install web-scanner-client
 ```
 
-The agent must be running locally (defaults to `http://127.0.0.1:51823`). It only listens on loopback — scanning is local-only by design.
+The agent must be running locally (defaults to `http://127.0.0.1:51823`). It only listens on loopback : scanning is local-only by design.
 
 ## Quick start (core)
 
@@ -97,7 +97,7 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | `fetch` | `globalThis.fetch` | Inject for Node/testing. |
 | `WebSocket` | `globalThis.WebSocket` | Inject for Node/testing. |
 | `timeoutMs` | `30000` | Per-request timeout (AbortController). `0` disables. |
-| `retries` | `2` | Transient-failure retries (429/502/503/504 + network errors) for idempotent calls — GET, scan start, result fetch. **`continue()`/`finish()` are never retried** (not idempotent). |
+| `retries` | `2` | Transient-failure retries (429/502/503/504 + network errors) for idempotent calls : GET, scan start, result fetch. **`continue()`/`finish()` are never retried** (not idempotent). |
 | `retryDelayMs` | `500` | Base retry backoff; doubles per attempt, capped 5s. |
 | `maxReconnects` | `5` | WebSocket auto-reconnect attempts before failing. |
 | `reconnectDelayMs` | `500` | Base reconnect backoff; doubles per attempt, capped 5s. |
@@ -108,13 +108,13 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | method | returns |
 | --- | --- |
 | `listDevices()` | `Promise<Device[]>` |
-| `listFilters()` | `Promise<FilterDef[]>` — raw filter registry + param schema |
+| `listFilters()` | `Promise<FilterDef[]>` : raw filter registry + param schema |
 | `listPresets()` | `Promise<Record<string, Preset>>` |
 | `scan(request)` | `Promise<ScanJob>` |
 
 ### `ScanRequest`
 
-`device_id`, `backend` (required), plus optional `dpi` (300), `color_mode` (`color`\|`grayscale`\|`black_and_white`), `source` (`flatbed`\|`adf`\|`adf_duplex`), `output_format` (`pdf`\|`png`\|`jpeg`), `max_pages` (1), and **either** `preset` (string) **or** `filters` (array) — not both (the agent rejects both with a `422`).
+`device_id`, `backend` (required), plus optional `dpi` (300), `color_mode` (`color`\|`grayscale`\|`black_and_white`), `source` (`flatbed`\|`adf`\|`adf_duplex`), `output_format` (`pdf`\|`png`\|`jpeg`), `max_pages` (1), and **either** `preset` (string) **or** `filters` (array) : not both (the agent rejects both with a `422`).
 
 ### `ScanJob`
 
@@ -123,7 +123,7 @@ See [`examples/vue.vue`](./examples/vue.vue).
 | `id`, `status`, `pageCount`, `maxPages` | live state |
 | `on("progress" \| "awaiting_page" \| "done" \| "error" \| "warning", cb)` | subscribe; returns an unsubscribe fn |
 | `continue()` / `finish()` | flatbed page-swap controls (valid only while `awaiting_page`) |
-| `completed()` | `Promise<Blob>` — resolves on done, rejects on error |
+| `completed()` | `Promise<Blob>` : resolves on done, rejects on error |
 | `resultUrl()` | URL for `<a download>` / `<img src>` |
 | `close()` | tear down the WebSocket |
 
