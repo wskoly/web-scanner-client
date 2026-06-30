@@ -4,7 +4,7 @@ import { useDevices, useScanner } from "web-scanner-client/react";
 
 export function ScanPanel() {
   const client = useMemo(() => new ScannerClient(), []);
-  const { devices, refresh } = useDevices(client);
+  const { devices, loading: devicesLoading, error: devicesError, refresh } = useDevices(client);
   const {
     scan,
     status,
@@ -13,11 +13,20 @@ export function ScanPanel() {
     awaitingPage,
     result,
     error,
+    warnings,
     continueScan,
     finishScan,
+    reset,
   } = useScanner(client);
 
   const [selected, setSelected] = useState("");
+
+  const scanning = status !== "idle" && status !== "done" && status !== "error";
+
+  const resultUrl = useMemo(
+    () => (result ? URL.createObjectURL(result) : null),
+    [result],
+  );
 
   const start = () => {
     const device = devices.find((d) => d.id === selected);
@@ -28,14 +37,18 @@ export function ScanPanel() {
       dpi: 200,
       source: "flatbed",
       output_format: "pdf",
-      max_pages: 2, // exercise the page-swap flow
+      max_pages: 2, // exercise the page-swap flow; use max_pages: 1 with png/jpeg
       preset: "bw_document",
     });
   };
 
   return (
     <div>
-      <button onClick={refresh}>Refresh devices</button>
+      <button onClick={refresh} disabled={devicesLoading}>
+        {devicesLoading ? "Loading…" : "Refresh devices"}
+      </button>
+      {devicesError && <p style={{ color: "red" }}>Devices: {devicesError.message}</p>}
+
       <select value={selected} onChange={(e) => setSelected(e.target.value)}>
         <option value="">Select scanner…</option>
         {devices.map((d) => (
@@ -44,9 +57,16 @@ export function ScanPanel() {
           </option>
         ))}
       </select>
-      <button onClick={start} disabled={!selected}>
-        Scan
+
+      <button onClick={start} disabled={!selected || scanning}>
+        {scanning ? "Scanning…" : "Scan"}
       </button>
+
+      {status !== "idle" && (
+        <button onClick={reset} style={{ marginLeft: 8 }}>
+          Reset
+        </button>
+      )}
 
       <p>
         status: {status} ({pageCount}/{maxPages})
@@ -62,8 +82,14 @@ export function ScanPanel() {
 
       {error && <p style={{ color: "red" }}>Error: {error.message}</p>}
 
-      {result && (
-        <a href={URL.createObjectURL(result)} download="scan.pdf">
+      {warnings.length > 0 && (
+        <ul style={{ color: "#a16207", fontSize: "0.85em" }}>
+          {warnings.map((w, i) => <li key={i}>{w}</li>)}
+        </ul>
+      )}
+
+      {resultUrl && (
+        <a href={resultUrl} download="scan.pdf">
           Download scan.pdf
         </a>
       )}
