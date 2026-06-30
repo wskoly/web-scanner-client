@@ -123,6 +123,15 @@ export class ScanJob {
     await this.post(`/scan/${this.id}/finish`);
   }
 
+  /**
+   * POST /scan/{id}/abort. Signals the agent to stop at the next safe point:
+   * immediately if awaiting_page, after the current page scan otherwise.
+   * Not retried (state-changing).
+   */
+  async abort(): Promise<void> {
+    await this.post(`/scan/${this.id}/abort`);
+  }
+
   /** Resolves with the result Blob on `done`, rejects on `error`. */
   completed(): Promise<Blob> {
     return this.completion;

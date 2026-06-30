@@ -51,6 +51,8 @@ export interface UseScannerResult {
   continueScan: () => Promise<void>;
   /** Stop early, assemble what's captured. */
   finishScan: () => Promise<void>;
+  /** Abort the scan — immediate if awaiting_page, deferred otherwise. */
+  abortScan: () => Promise<void>;
   /** Clear state back to idle (closes any open job). */
   reset: () => void;
 }
@@ -112,6 +114,10 @@ export function useScanner(client: ScannerClient): UseScannerResult {
     await jobRef.current?.finish();
   }, []);
 
+  const abortScan = useCallback(async () => {
+    await jobRef.current?.abort();
+  }, []);
+
   const reset = useCallback(() => {
     teardown();
     setStatus("idle");
@@ -133,6 +139,7 @@ export function useScanner(client: ScannerClient): UseScannerResult {
     warnings,
     continueScan,
     finishScan,
+    abortScan,
     reset,
   };
 }

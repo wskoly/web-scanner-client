@@ -55,6 +55,12 @@ export interface ScanRequest {
   source?: ScanSource;
   output_format?: OutputFormat;
   max_pages?: number;
+  /**
+   * How long (seconds) the server waits for the next flatbed page swap before
+   * auto-finishing with pages captured so far. Default 600 (10 min). 0 = wait
+   * indefinitely. Only relevant for source "flatbed" with max_pages > 1.
+   */
+  page_swap_timeout?: number;
   /** Manual filter chain. Mutually exclusive with `preset`. */
   filters?: FilterSpec[];
   /** Named preset (see listPresets()). Mutually exclusive with `filters`. */

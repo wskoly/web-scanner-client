@@ -16,6 +16,7 @@ export interface UseScannerReturn {
   scan: (request: ScanRequest) => Promise<void>;
   continueScan: () => Promise<void>;
   finishScan: () => Promise<void>;
+  abortScan: () => Promise<void>;
   reset: () => void;
 }
 
@@ -87,6 +88,10 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     await job?.finish();
   };
 
+  const abortScan = async () => {
+    await job?.abort();
+  };
+
   const reset = () => {
     teardown();
     status.value = "idle";
@@ -113,6 +118,7 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     scan,
     continueScan,
     finishScan,
+    abortScan,
     reset,
   };
 }
