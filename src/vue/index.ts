@@ -35,8 +35,12 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
   const warnings = ref<string[]>([]);
 
   let job: ScanJob | null = null;
+  // See the React hook: guards against a stale scan() resolving after a newer
+  // scan()/reset() or after the scope was disposed.
+  let generation = 0;
 
   const teardown = () => {
+    generation += 1;
     job?.close();
     job = null;
   };
@@ -55,8 +59,14 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
     error.value = null;
     warnings.value = [];
 
+    const myGeneration = generation;
     try {
-      job = await client.scan(request);
+      const created = await client.scan(request);
+      if (myGeneration !== generation) {
+        created.close();
+        return;
+      }
+      job = created;
       job.on("progress", (ev) => {
         status.value = ev.status;
         pageCount.value = ev.pageCount;
@@ -69,12 +79,14 @@ export function useScanner(client: ScannerClient): UseScannerReturn {
       });
       job.on("error", (err) => {
         error.value = err;
+        status.value = "error";
         awaitingPage.value = false;
       });
       job.on("warning", (msg) => {
         warnings.value = [...warnings.value, msg];
       });
     } catch (err) {
+      if (myGeneration !== generation) return;
       error.value = err instanceof Error ? err : new Error(String(err));
       status.value = "error";
     }

@@ -69,8 +69,14 @@ export function useScanner(client: ScannerClient): UseScannerResult {
   const [error, setError] = useState<Error | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const jobRef = useRef<ScanJob | null>(null);
+  // Bumped by every scan()/reset()/unmount. A scan() whose job arrives after
+  // a newer scan started (double click) or after unmount is stale: its job is
+  // closed instead of being attached, so it can neither leak its WebSocket
+  // nor overwrite the state of the current job.
+  const generationRef = useRef(0);
 
   const teardown = useCallback(() => {
+    generationRef.current += 1;
     jobRef.current?.close();
     jobRef.current = null;
   }, []);
@@ -87,8 +93,13 @@ export function useScanner(client: ScannerClient): UseScannerResult {
       setError(null);
       setWarnings([]);
 
+      const generation = generationRef.current;
       try {
         const job = await client.scan(request);
+        if (generation !== generationRef.current) {
+          job.close();
+          return;
+        }
         jobRef.current = job;
         job.on("progress", (ev) => {
           setStatus(ev.status);
@@ -96,9 +107,13 @@ export function useScanner(client: ScannerClient): UseScannerResult {
           setMaxPages(ev.maxPages);
         });
         job.on("done", (blob) => setResult(blob));
-        job.on("error", (err) => setError(err));
+        job.on("error", (err) => {
+          setError(err);
+          setStatus("error");
+        });
         job.on("warning", (msg) => setWarnings((prev) => [...prev, msg]));
       } catch (err) {
+        if (generation !== generationRef.current) return;
         setError(err instanceof Error ? err : new Error(String(err)));
         setStatus("error");
       }

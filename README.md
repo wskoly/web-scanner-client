@@ -36,6 +36,7 @@ const job = await client.scan({
   source: "flatbed",
   output_format: "pdf",
   preset: "bw_document",   // or pass `filters: [...]` for custom processing
+  quality: "balanced",     // file size: "lossless" | "high" | "balanced" | "small"
 });
 
 // 3. Track progress (live via wss://)
@@ -174,6 +175,9 @@ The progress WebSocket auto-reconnects with backoff on drop or stall. The agent 
 | `listDevices()` | `Promise<Device[]>` |
 | `listFilters()` | `Promise<FilterDef[]>` |
 | `listPresets()` | `Promise<Record<string, Preset>>` |
+| `listQualityPresets()` | `Promise<Record<QualityPreset, QualityPresetDef>>` (agent ≥ 1.3.0) |
+| `getSettings()` | `Promise<AgentSettings>` — `{ prefer_twain: boolean }` (agent ≥ 1.3.0) |
+| `updateSettings(changes)` | `Promise<AgentSettings>` — e.g. `{ prefer_twain: false }` shows WIA entries again (agent ≥ 1.3.0) |
 | `scan(request)` | `Promise<ScanJob>` |
 
 ### Response types
@@ -225,8 +229,34 @@ The progress WebSocket auto-reconnects with backoff on drop or stall. The agent 
 | `page_swap_timeout` | `600` | seconds to wait for flatbed page swap before auto-finishing with captured pages; `0` = wait indefinitely; only relevant for `source: "flatbed"` with `max_pages > 1` |
 | `preset` | : | string from `listPresets()` — mutually exclusive with `filters` |
 | `filters` | : | `[{ name, params? }]` — mutually exclusive with `preset` |
+| `quality` | `"balanced"` | `"lossless"` / `"high"` / `"balanced"` / `"small"` — output compression, see below |
+| `skip_blank_pages` | `false` | drop near-empty pages (e.g. blank duplex backs) before the result is built |
 
 > **Note**: Passing `output_format: "png"` or `"jpeg"` with `max_pages > 1` throws a `ScannerError(422)` immediately in the client — no HTTP request is made. The SDK server enforces the same rule and returns HTTP 422 if the constraint is bypassed. Use `output_format: "pdf"` for all multi-page scans.
+
+### Quality presets (file size)
+
+`quality` only changes how pages are compressed; it is independent of the filter `preset`. Sizes are for one color A4 page at 200 DPI:
+
+| `quality` | color / gray pages | ~size per page | use for |
+| --- | --- | --- | --- |
+| `"lossless"` | PNG (pixel-exact) | ~6 MB | archival, OCR training |
+| `"high"` | JPEG 90 | ~0.8 MB | photos, fine print |
+| `"balanced"` *(default)* | JPEG 80 | ~0.5 MB | everyday documents |
+| `"small"` | JPEG 65 | ~0.35 MB | email / upload limits |
+
+Black & white pages are always stored lossless (CCITT G4, ~30–60 KB per page). Except for `"lossless"`, color scans with no real color are stored as grayscale; pages with a colored logo or stamp stay in color.
+
+```ts
+import { QUALITY_PRESETS } from "web-scanner-client";
+
+QUALITY_PRESETS;                         // ["lossless", "high", "balanced", "small"] - no network call
+await client.listQualityPresets();        // { balanced: { description, jpeg_quality: 80, ... }, ... }
+```
+
+An unknown `quality` throws `ScannerError(422)` in the client before any request is sent.
+
+> **Agent ≥ 1.3.0 changed the default output** from lossless PNG-in-PDF to `"balanced"` JPEG. Pass `quality: "lossless"` to keep the old behaviour.
 
 ### `ScanJob`
 

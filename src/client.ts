@@ -5,7 +5,16 @@ import {
   type ScanJobResilienceOptions,
   type WebSocketCtor,
 } from "./job.js";
-import type { Device, FilterDef, Preset, ScanRequest } from "./types.js";
+import {
+  QUALITY_PRESETS,
+  type AgentSettings,
+  type Device,
+  type FilterDef,
+  type Preset,
+  type QualityPreset,
+  type QualityPresetDef,
+  type ScanRequest,
+} from "./types.js";
 
 export interface ScannerClientOptions {
   /** Agent base URL. Defaults to the agent's loopback bind. */
@@ -88,6 +97,39 @@ export class ScannerClient {
   }
 
   /**
+   * GET /quality-presets - output compression presets with descriptions,
+   * keyed by name. Needs agent >= 1.3.0; the names alone are available
+   * offline as QUALITY_PRESETS.
+   */
+  listQualityPresets(): Promise<Record<QualityPreset, QualityPresetDef>> {
+    return this.getJson<Record<QualityPreset, QualityPresetDef>>("/quality-presets");
+  }
+
+  /** GET /settings - agent-wide settings (agent >= 1.3.0). */
+  getSettings(): Promise<AgentSettings> {
+    return this.getJson<AgentSettings>("/settings");
+  }
+
+  /** PUT /settings - change agent-wide settings; omitted fields are kept.
+   * Returns the full updated settings (agent >= 1.3.0). */
+  async updateSettings(changes: Partial<AgentSettings>): Promise<AgentSettings> {
+    const res = await request(
+      this.fetchImpl,
+      `${this.baseUrl}/settings`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      },
+      this.httpOptions, // idempotent: safe to retry
+    );
+    if (!res.ok) {
+      throw new ScannerError(res.status, await safeDetail(res));
+    }
+    return (await res.json()) as AgentSettings;
+  }
+
+  /**
    * POST /scan, then open the progress WebSocket. Returns a live ScanJob you
    * subscribe to (progress/awaiting_page/done/error/warning) or await via
    * completed().
@@ -99,6 +141,12 @@ export class ScannerClient {
       throw new ScannerError(
         422,
         "PNG and JPEG output only support a single page; set output_format to 'pdf' when max_pages > 1",
+      );
+    }
+    if (request_.quality !== undefined && !QUALITY_PRESETS.includes(request_.quality)) {
+      throw new ScannerError(
+        422,
+        `Unknown quality '${String(request_.quality)}'; expected one of ${QUALITY_PRESETS.join(", ")}`,
       );
     }
     const res = await request(

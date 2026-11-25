@@ -24,7 +24,10 @@ export type {
   FilterDef,
   FilterSpec,
   Preset,
+  AgentSettings,
+  QualityPreset,
+  QualityPresetDef,
   ScanRequest,
   ScanJobEvent,
 } from "./types.js";
-export { CONTENT_TYPE_BY_FORMAT } from "./types.js";
+export { CONTENT_TYPE_BY_FORMAT, QUALITY_PRESETS } from "./types.js";

@@ -71,6 +71,10 @@ export class ScanJob {
 
   private ws: WebSocketLike | null = null;
   private settled = false;
+  /** Set once a "done" frame arrived and the result download started. The
+   * agent closes the socket right after the terminal frame; without this the
+   * close would trigger a reconnect and a second (possibly large) download. */
+  private fetchingResult = false;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
@@ -172,6 +176,13 @@ export class ScanJob {
 
   private onDisconnect(reason: string): void {
     if (this.settled) return;
+    if (this.fetchingResult) {
+      // Expected close after the terminal frame - the result fetch decides
+      // success/failure from here, no reconnect needed.
+      this.ws = null;
+      this.clearStallTimer();
+      return;
+    }
     if (this.ws) {
       try {
         this.ws.close();
@@ -238,6 +249,9 @@ export class ScanJob {
       this.clearStallTimer(); // user-paced; don't treat the wait as a stall
       this.emit("awaiting_page", event);
     } else if (parsed.status === "done") {
+      if (this.fetchingResult) return;
+      this.fetchingResult = true;
+      this.clearStallTimer();
       void this.fetchResult();
     } else if (parsed.status === "error") {
       this.fail(new Error(parsed.error || "Scan failed"));

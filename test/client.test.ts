@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ScannerClient, ScannerError, type HttpLike } from "../src/index.js";
+import { QUALITY_PRESETS, ScannerClient, ScannerError, type HttpLike } from "../src/index.js";
 import { FakeWebSocketCtor, makeFetch } from "./helpers.js";
 
 describe("ScannerClient", () => {
@@ -97,6 +97,52 @@ describe("ScannerClient", () => {
       status: 503,
     });
     expect(fetchImpl.calls.filter((c) => c.url.endsWith("/scan"))).toHaveLength(1);
+  });
+
+  describe("quality presets", () => {
+    it("lists quality presets from the agent", async () => {
+      const fetchImpl = makeFetch({
+        "GET /quality-presets": {
+          json: {
+            lossless: { description: "png", jpeg_quality: null, detect_grayscale: false },
+            balanced: { description: "jpeg 80", jpeg_quality: 80, detect_grayscale: true },
+          },
+        },
+      });
+      const client = new ScannerClient({ baseUrl: "http://agent", fetch: fetchImpl, WebSocket: FakeWebSocketCtor });
+
+      const presets = await client.listQualityPresets();
+      expect(presets.balanced.jpeg_quality).toBe(80);
+      expect(presets.lossless.jpeg_quality).toBeNull();
+    });
+
+    it("exports the preset names for offline pickers", () => {
+      expect(QUALITY_PRESETS).toEqual(["lossless", "high", "balanced", "small"]);
+    });
+
+    it("sends quality and skip_blank_pages in the scan request", async () => {
+      const inner = makeFetch({ "POST /scan": { json: { job_id: "job1" } } });
+      const bodies: unknown[] = [];
+      const fetchImpl: HttpLike = (url, init) => {
+        if (init?.body) bodies.push(JSON.parse(String(init.body)));
+        return inner(url, init);
+      };
+      const client = new ScannerClient({ baseUrl: "http://agent", fetch: fetchImpl, WebSocket: FakeWebSocketCtor });
+
+      await client.scan({ device_id: "d1", backend: "twain", quality: "small", skip_blank_pages: true });
+
+      expect(bodies[0]).toMatchObject({ quality: "small", skip_blank_pages: true });
+    });
+
+    it("rejects an unknown quality before any HTTP call", async () => {
+      const fetchImpl = makeFetch({});
+      const client = new ScannerClient({ baseUrl: "http://agent", fetch: fetchImpl, WebSocket: FakeWebSocketCtor });
+
+      await expect(
+        client.scan({ device_id: "d1", backend: "twain", quality: "ultra" as never }),
+      ).rejects.toMatchObject({ name: "ScannerError", status: 422 });
+      expect(fetchImpl.calls).toHaveLength(0);
+    });
   });
 
   describe("scan() pre-validation", () => {
